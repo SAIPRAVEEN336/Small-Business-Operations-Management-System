@@ -626,3 +626,237 @@ def count_alerts(conn, today_iso):
     """Return how many alerts are open for today_iso (used for the nav badge)."""
     return len(generate_alerts(conn, today_iso))
 
+
+
+def _month_keys(today_iso, months):
+    """Return 'YYYY-MM' keys for the last `months` calendar months ending in today's month, oldest first."""
+    base = date.fromisoformat(today_iso)
+    year, month = base.year, base.month
+    keys = []
+    for _ in range(months):
+        keys.append(f"{year:04d}-{month:02d}")
+        month -= 1
+        if month == 0:
+            month = 12
+            year -= 1
+    return list(reversed(keys))
+
+
+def monthly_series(conn, today_iso, months=6):
+    """Return invoiced and received totals per month for the last `months` months, oldest first.
+
+    Void invoices are excluded from both totals. Months with no rows show 0.
+    """
+    keys = _month_keys(today_iso, months)
+    invoiced = {
+        row["month"]: row["total"]
+        for row in conn.execute(
+            """
+            SELECT substr(issue_date, 1, 7) AS month, COALESCE(SUM(amount_cents), 0) AS total
+            FROM invoices
+            WHERE status != 'void'
+            GROUP BY substr(issue_date, 1, 7)
+            """
+        ).fetchall()
+    }
+    received = {
+        row["month"]: row["total"]
+        for row in conn.execute(
+            """
+            SELECT substr(p.paid_date, 1, 7) AS month, COALESCE(SUM(p.amount_cents), 0) AS total
+            FROM payments p
+            JOIN invoices i ON i.id = p.invoice_id
+            WHERE i.status != 'void'
+            GROUP BY substr(p.paid_date, 1, 7)
+            """
+        ).fetchall()
+    }
+    return [
+        {
+            "label": calendar.month_abbr[int(key[5:])],
+            "invoiced_cents": int(invoiced.get(key, 0)),
+            "received_cents": int(received.get(key, 0)),
+        }
+        for key in keys
+    ]
+
+
+def bills_by_category(conn):
+    """Return active recurring bill totals per category, largest first. Blank categories become 'other'."""
+    rows = conn.execute(
+        """
+        SELECT COALESCE(NULLIF(TRIM(category), ''), 'other') AS category,
+               COALESCE(SUM(amount_cents), 0) AS total_cents
+        FROM recurring_bills
+        WHERE active = 1
+        GROUP BY COALESCE(NULLIF(TRIM(category), ''), 'other')
+        ORDER BY total_cents DESC
+        """
+    ).fetchall()
+    return [{"category": row["category"], "total_cents": int(row["total_cents"])} for row in rows]
+
+
+def active_bills_total_cents(conn):
+    """Return the sum of amount_cents over active recurring bills, in cents."""
+    row = conn.execute(
+        "SELECT COALESCE(SUM(amount_cents), 0) AS total FROM recurring_bills WHERE active = 1"
+    ).fetchone()
+    return int(row["total"])
+
+
+def recent_invoices(conn, limit=8):
+    """Return the newest non-void, unpaid (open or overdue) invoices, newest first, up to limit."""
+    today_iso = today()
+    rows = conn.execute(
+        """
+        SELECT i.id, i.invoice_number, i.status, i.amount_cents, i.issue_date, i.due_date,
+               c.name AS customer_name,
+               i.amount_cents - COALESCE(SUM(p.amount_cents), 0) AS balance_cents
+        FROM invoices i
+        JOIN customers c ON c.id = i.customer_id
+        LEFT JOIN payments p ON p.invoice_id = i.id
+        WHERE i.status != 'void'
+        GROUP BY i.id
+        ORDER BY i.issue_date DESC, i.id DESC
+        """
+    ).fetchall()
+    result = []
+    for row in rows:
+        status = compute_status(row, row["balance_cents"], today_iso)
+        if status == "paid":
+            continue
+        result.append(
+            {
+                "id": row["id"],
+                "invoice_number": row["invoice_number"],
+                "customer_name": row["customer_name"],
+                "status": status,
+                "amount_cents": row["amount_cents"],
+                "due_date": row["due_date"],
+            }
+        )
+        if len(result) >= limit:
+            break
+    return result
+
+
+def upcoming_bills(conn):
+    """Return active recurring bills ordered by due day of month."""
+    rows = conn.execute(
+        """
+        SELECT name, COALESCE(NULLIF(TRIM(category), ''), 'other') AS category,
+               amount_cents, due_day_of_month
+        FROM recurring_bills
+        WHERE active = 1
+        ORDER BY due_day_of_month
+        """
+    ).fetchall()
+    return [
+        {
+            "name": row["name"],
+            "category": row["category"],
+            "amount_cents": row["amount_cents"],
+            "due_day_of_month": row["due_day_of_month"],
+        }
+        for row in rows
+    ]
+
+
+def forecast_bands(base_forecast, pct=0.15):
+    """Return upside and downside running balances: base balance +/- pct of cumulative base inflow to date."""
+    upside = []
+    downside = []
+    cumulative_inflow = 0
+    for entry in base_forecast:
+        cumulative_inflow += entry["expected_inflows_cents"]
+        balance = entry["running_balance_cents"]
+        swing = cumulative_inflow * pct
+        upside.append(int(round(balance + swing)))
+        downside.append(int(round(balance - swing)))
+    return {"upside": upside, "downside": downside}
+
+
+def forecast_summary(base_forecast):
+    """Return headline forecast numbers: opening balance, lowest balance and date, and average weekly net flow."""
+    if not base_forecast:
+        return {
+            "current_balance_cents": 0,
+            "lowest_cents": 0,
+            "lowest_date": None,
+            "avg_weekly_net_cents": 0,
+        }
+    first = base_forecast[0]
+    current_balance = first["running_balance_cents"] - (
+        first["expected_inflows_cents"] - first["expected_outflows_cents"]
+    )
+    lowest_cents, lowest_date = lowest_balance(base_forecast)
+    total_net = sum(e["expected_inflows_cents"] - e["expected_outflows_cents"] for e in base_forecast)
+    weeks = len(base_forecast) / 7
+    avg_weekly_net = int(round(total_net / weeks)) if weeks > 0 else 0
+    return {
+        "current_balance_cents": int(current_balance),
+        "lowest_cents": int(lowest_cents),
+        "lowest_date": lowest_date,
+        "avg_weekly_net_cents": avg_weekly_net,
+    }
+
+
+def ar_aging(conn, today_iso):
+    """Return unpaid balances of open invoices in four buckets: Current, 1-30, 31-60 and 61+ days past due."""
+    totals = {"Current": 0, "1-30 days": 0, "31-60 days": 0, "61+ days": 0}
+    rows = conn.execute(
+        """
+        SELECT i.due_date,
+               i.amount_cents - COALESCE(SUM(p.amount_cents), 0) AS balance_cents
+        FROM invoices i
+        LEFT JOIN payments p ON p.invoice_id = i.id
+        WHERE i.status NOT IN ('paid', 'void')
+        GROUP BY i.id
+        HAVING balance_cents > 0
+        """
+    ).fetchall()
+    for row in rows:
+        late = days_overdue(row["due_date"], today_iso)
+        if late == 0:
+            label = "Current"
+        elif late <= 30:
+            label = "1-30 days"
+        elif late <= 60:
+            label = "31-60 days"
+        else:
+            label = "61+ days"
+        totals[label] += row["balance_cents"]
+    return [{"label": label, "amount_cents": int(cents)} for label, cents in totals.items()]
+
+
+def _next_occurrence(due_day_of_month, today_date):
+    """Return the next calendar date (today or later) on which the bill's due day falls."""
+    this_month = today_date.replace(day=_effective_due_day(due_day_of_month, today_date))
+    if this_month >= today_date:
+        return this_month
+    if today_date.month == 12:
+        year, month = today_date.year + 1, 1
+    else:
+        year, month = today_date.year, today_date.month + 1
+    first_of_next = date(year, month, 1)
+    return date(year, month, _effective_due_day(due_day_of_month, first_of_next))
+
+
+def ap_due(conn, today_iso):
+    """Return active recurring bill totals bucketed by days until next due date: This week, Next week, 2+ weeks."""
+    totals = {"This week": 0, "Next week": 0, "2+ weeks": 0}
+    today_date = date.fromisoformat(today_iso)
+    bills = conn.execute(
+        "SELECT amount_cents, due_day_of_month FROM recurring_bills WHERE active = 1"
+    ).fetchall()
+    for bill in bills:
+        days_away = (_next_occurrence(bill["due_day_of_month"], today_date) - today_date).days
+        if days_away <= 6:
+            label = "This week"
+        elif days_away <= 13:
+            label = "Next week"
+        else:
+            label = "2+ weeks"
+        totals[label] += bill["amount_cents"]
+    return [{"label": label, "amount_cents": int(cents)} for label, cents in totals.items()]
+

@@ -7,21 +7,128 @@
 
 <div class="stat-grid">
     <div class="stat-card">
-        <span class="stat-label">Total outstanding</span>
-        <span class="stat-value">{{ summary.total_outstanding_cents | rands }}</span>
-    </div>
-    <div class="stat-card">
-        <span class="stat-label">Overdue</span>
-        <span class="stat-value">{{ summary.overdue_cents | rands }}</span>
-    </div>
-    <div class="stat-card">
-        <span class="stat-label">Customers who owe</span>
-        <span class="stat-value">{{ summary.customers_owing }}</span>
-    </div>
-    <div class="stat-card">
-        <span class="stat-label">Received this month</span>
+        <span class="stat-label">Total received</span>
         <span class="stat-value">{{ summary.received_this_month_cents | rands }}</span>
     </div>
+    <div class="stat-card">
+        <span class="stat-label">Monthly bills</span>
+        <span class="stat-value">{{ monthly_bills_cents | rands }}</span>
+    </div>
+    <div class="stat-card">
+        <span class="stat-label">Net</span>
+        <span class="stat-value">{{ (summary.received_this_month_cents - monthly_bills_cents) | rands }}</span>
+    </div>
+    <div class="stat-card">
+        <span class="stat-label">Pending invoices</span>
+        <span class="stat-value">{{ summary.total_outstanding_cents | rands }}</span>
+        <span class="stat-change">{{ summary.customers_owing }} customers owe</span>
+    </div>
+</div>
+
+<nav class="tabs">
+    <a href="#overview">Overview</a>
+    <a href="#invoices">Invoices</a>
+    <a href="#bills">Bills</a>
+</nav>
+
+<div class="dash-grid">
+    <div class="card" id="overview">
+        <h2 class="card-title">Revenue overview</h2>
+        <div class="chart-card dash-chart">
+            <canvas id="revenueChart"></canvas>
+        </div>
+        <script id="revenue-data" type="application/json">{{ {"labels": monthly | map(attribute="label") | list, "invoiced": monthly | map(attribute="invoiced_cents") | list, "received": monthly | map(attribute="received_cents") | list} | tojson }}</script>
+    </div>
+
+    <div class="card">
+        <h2 class="card-title">Expense breakdown</h2>
+        {% if bill_categories %}
+        <div class="expense-grid">
+            {% for item in bill_categories %}
+            <div class="expense-tile">
+                <span class="expense-label">{{ item.category | capitalize }}</span>
+                <span class="expense-value">{{ item.total_cents | rands }}</span>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div class="empty-state">
+            <p>No bills recorded yet.</p>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<div class="card dash-wide" id="invoices">
+    <h2 class="card-title">Recent invoices</h2>
+    {% if recent %}
+    <table class="table">
+        <thead>
+            <tr>
+                <th>Invoice</th>
+                <th>Customer</th>
+                <th>Status</th>
+                <th>Amount</th>
+                <th>Due date</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for row in recent %}
+            <tr>
+                <td>{{ row.invoice_number }}</td>
+                <td>{{ row.customer_name }}</td>
+                <td>
+                    {% if row.status == "paid" %}
+                    <span class="pill pill-paid">{{ row.status | capitalize }}</span>
+                    {% elif row.status == "overdue" %}
+                    <span class="pill pill-overdue">{{ row.status | capitalize }}</span>
+                    {% else %}
+                    <span class="pill pill-open">{{ row.status | capitalize }}</span>
+                    {% endif %}
+                </td>
+                <td>{{ row.amount_cents | rands }}</td>
+                <td>{{ row.due_date }}</td>
+                <td><a href="{{ url_for('invoices.invoice_detail', invoice_id=row.id) }}">View</a></td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <div class="empty-state">
+        <p>No invoices yet.</p>
+    </div>
+    {% endif %}
+</div>
+
+<div class="card dash-wide" id="bills">
+    <h2 class="card-title">Upcoming bills</h2>
+    {% if bills %}
+    <table class="table">
+        <thead>
+            <tr>
+                <th>Name</th>
+                <th>Category</th>
+                <th>Amount</th>
+                <th>Due</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for bill in bills %}
+            <tr>
+                <td>{{ bill.name }}</td>
+                <td><span class="pill pill-open">{{ bill.category | capitalize }}</span></td>
+                <td>{{ bill.amount_cents | rands }}</td>
+                <td>Due on the {{ bill.due_day_of_month }}th</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <div class="empty-state">
+        <p>No bills due this month.</p>
+    </div>
+    {% endif %}
 </div>
 
 <h2>Who owes me</h2>
@@ -59,4 +166,39 @@
     <p>Nobody owes you money right now.</p>
 </div>
 {% endif %}
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+(function () {
+    var data = JSON.parse(document.getElementById("revenue-data").textContent);
+    var canvas = document.getElementById("revenueChart");
+    if (!canvas || typeof Chart === "undefined") { return; }
+    new Chart(canvas, {
+        type: "bar",
+        data: {
+            labels: data.labels,
+            datasets: [
+                {
+                    label: "Invoiced",
+                    data: data.invoiced.map(function (c) { return c / 100; }),
+                    backgroundColor: "#a5f3fc",
+                    borderRadius: 6
+                },
+                {
+                    label: "Received",
+                    data: data.received.map(function (c) { return c / 100; }),
+                    backgroundColor: "#06b6d4",
+                    borderRadius: 6
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { display: true, position: "top" } },
+            scales: { y: { beginAtZero: true } }
+        }
+    });
+})();
+</script>
 {% endblock %}

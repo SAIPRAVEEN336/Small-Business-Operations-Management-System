@@ -4,9 +4,13 @@ from flask import Blueprint, render_template, request
 
 import db
 from services import (
+    ap_due,
     apply_scenario,
+    ar_aging,
     build_cash_forecast,
     first_negative_date,
+    forecast_bands,
+    forecast_summary,
     lowest_balance,
     parse_cents,
     summary_sentence,
@@ -88,6 +92,10 @@ def forecast_page():
             scenario_entries = apply_scenario(conn, entries, scenario, today())
             summary = summary_sentence(entries, scenario_entries)
         customers = conn.execute("SELECT id, name FROM customers ORDER BY name").fetchall()
+        bands = forecast_bands(entries)
+        cash_summary = forecast_summary(entries)
+        ar = ar_aging(conn, today())
+        ap = ap_due(conn, today())
     finally:
         conn.close()
 
@@ -109,6 +117,10 @@ def forecast_page():
         scenario_error=scenario_error,
         summary=summary,
         customers=customers,
+        bands=bands,
+        cash_summary=cash_summary,
+        ar=ar,
+        ap=ap,
         form={
             "customer_id": request.args.get("customer_id", ""),
             "scenario_days": request.args.get("scenario_days", ""),

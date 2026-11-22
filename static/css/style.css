@@ -764,3 +764,162 @@ textarea:focus {
 .empty-state a:hover {
     text-decoration: underline;
 }
+
+/* Dashboard: two-column grid, chart sizing, expense tiles */
+.dash-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
+    gap: 16px;
+    margin-bottom: 24px;
+}
+
+.dash-grid > .card {
+    margin: 0;
+}
+
+.dash-wide {
+    margin-bottom: 24px;
+}
+
+.dash-chart {
+    height: 320px;
+    position: relative;
+}
+
+.dash-chart canvas {
+    max-height: 100%;
+}
+
+.expense-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+}
+
+.expense-tile {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 14px;
+    border-radius: 10px;
+    background: var(--accent-soft);
+    color: var(--text);
+}
+
+.expense-tile:nth-child(4n + 1) {
+    background: #dcfce7;
+}
+
+.expense-tile:nth-child(4n + 2) {
+    background: #e0f2fe;
+}
+
+.expense-tile:nth-child(4n + 3) {
+    background: #fef3c7;
+}
+
+.expense-tile:nth-child(4n + 4) {
+    background: #fee2e2;
+}
+
+.expense-label {
+    font-size: 0.8rem;
+    color: var(--muted);
+}
+
+.expense-value {
+    font-size: 1.1rem;
+    font-weight: 700;
+}
+
+@media (max-width: 899px) {
+    .dash-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* Forecast page: summary row, AR/AP strip, two-column grid */
+.forecast-summary {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.stat-card .stat-value.is-negative {
+    color: var(--danger);
+}
+
+.stat-card .stat-value.is-positive {
+    color: var(--success);
+}
+
+.stat-card .stat-sub {
+    font-size: 0.8rem;
+    color: var(--muted);
+}
+
+.stat-card .stat-sub.is-negative {
+    color: var(--danger);
+    font-weight: 600;
+}
+
+.horizon-select {
+    display: inline-flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.9rem;
+    color: var(--muted);
+}
+
+.chart-legend-note {
+    margin: 0;
+    font-size: 0.8rem;
+    color: var(--muted);
+}
+
+.forecast-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 16px;
+    margin-bottom: 24px;
+    align-items: start;
+}
+
+.forecast-grid > .card {
+    margin: 0;
+}
+
+.ar-ap-strip {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 16px;
+}
+
+.ar-ap-col h3 {
+    margin: 0 0 8px;
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: var(--muted);
+}
+
+.ar-ap-row {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 8px 0;
+    border-bottom: 1px solid var(--border);
+    font-size: 0.9rem;
+}
+
+.ar-ap-row span:last-child {
+    font-weight: 600;
+}
+
+@media (max-width: 899px) {
+    .forecast-summary,
+    .forecast-grid,
+    .ar-ap-strip {
+        grid-template-columns: 1fr;
+    }
+}
+
+
