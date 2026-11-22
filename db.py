@@ -38,7 +38,8 @@ def init_db():
                 due_date TEXT NOT NULL,
                 amount_cents INTEGER NOT NULL,
                 status TEXT NOT NULL CHECK (status IN ('draft','sent','paid','void')),
-                created_at TEXT NOT NULL
+                created_at TEXT NOT NULL,
+                description TEXT
             );
 
             CREATE TABLE IF NOT EXISTS payments (
@@ -75,6 +76,10 @@ def init_db():
             );
             """
         )
+        # Older databases were created before the description column existed.
+        invoice_columns = {row["name"] for row in conn.execute("PRAGMA table_info(invoices)")}
+        if "description" not in invoice_columns:
+            conn.execute("ALTER TABLE invoices ADD COLUMN description TEXT")
         conn.commit()
     finally:
         conn.close()
@@ -113,7 +118,7 @@ DEMO_BILLS = [
     ("Tax provision", 120000, 28, "tax"),
 ]
 
-DEMO_OPENING_BALANCE_CENTS = 200000
+DEMO_OPENING_BALANCE_CENTS = 2200000
 
 
 def _first_of_month_back(d, months_back):

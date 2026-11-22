@@ -125,8 +125,8 @@ def new_invoice():
                     """
                     INSERT INTO invoices
                         (customer_id, invoice_number, issue_date, due_date,
-                         amount_cents, status, created_at)
-                    VALUES (?, ?, ?, ?, ?, 'sent', ?)
+                         amount_cents, status, created_at, description)
+                    VALUES (?, ?, ?, ?, ?, 'sent', ?, ?)
                     """,
                     (
                         customer["id"],
@@ -135,6 +135,7 @@ def new_invoice():
                         due.isoformat(),
                         amount_cents,
                         datetime.now().isoformat(timespec="seconds"),
+                        form["description"] or "",
                     ),
                 )
                 conn.commit()
