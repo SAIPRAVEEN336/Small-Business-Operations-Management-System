@@ -1,0 +1,95 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="page-header">
+    <h1>Recurring bills and opening cash</h1>
+</div>
+
+<div class="card">
+    <h2>Opening cash balance</h2>
+    <form method="post" action="{{ url_for('bills.save_opening_balance') }}">
+        <div class="form-field">
+            <label>Amount (R, negative allowed)
+                <input type="text" name="amount" value="{{ opening_text }}">
+            </label>
+        </div>
+        <button type="submit" class="btn btn-primary">Save balance</button>
+    </form>
+    {% if opening_error %}<p class="form-error">{{ opening_error }}</p>{% endif %}
+</div>
+
+<div class="card">
+    <h2>Add a recurring bill</h2>
+    <form method="post" action="{{ url_for('bills.bills_page') }}">
+        <div class="form-field">
+            <label>Name
+                <input type="text" name="name" value="{{ form.name }}">
+            </label>
+        </div>
+        <div class="form-field">
+            <label>Amount (R)
+                <input type="text" name="amount" value="{{ form.amount }}">
+            </label>
+        </div>
+        <div class="form-field">
+            <label>Due day of month (1 to 28)
+                <input type="number" name="due_day_of_month" min="1" max="28" value="{{ form.due_day_of_month }}">
+            </label>
+        </div>
+        <div class="form-field">
+            <label>Category
+                <select name="category">
+                    {% for c in categories %}
+                    <option value="{{ c }}"{% if c == form.category %} selected{% endif %}>{{ c | capitalize }}</option>
+                    {% endfor %}
+                </select>
+            </label>
+        </div>
+        <div class="form-field">
+            <label>
+                <input type="checkbox" name="active" value="1"{% if form.active %} checked{% endif %}> Active
+            </label>
+        </div>
+        <button type="submit" class="btn btn-primary">Add bill</button>
+    </form>
+    {% if error %}<p class="form-error">{{ error }}</p>{% endif %}
+</div>
+
+<div class="card">
+    <h2>Bills</h2>
+    {% if bills %}
+    <table class="table">
+        <thead>
+            <tr>
+                <th>Name</th>
+                <th>Amount</th>
+                <th>Due day</th>
+                <th>Category</th>
+                <th>Active</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for bill in bills %}
+            <tr>
+                <td>{{ bill.name }}</td>
+                <td>{{ bill.amount_cents | rands }}</td>
+                <td>{{ bill.due_day_of_month }}</td>
+                <td>{{ bill.category }}</td>
+                <td><span class="pill">{{ "yes" if bill.active else "no" }}</span></td>
+                <td>
+                    <form method="post" action="{{ url_for('bills.toggle_bill', bill_id=bill.id) }}">
+                        <button type="submit" class="btn btn-secondary">{{ "Deactivate" if bill.active else "Activate" }}</button>
+                    </form>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <div class="empty-state">
+        <p>No recurring bills yet.</p>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

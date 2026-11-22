@@ -1,0 +1,97 @@
+{% extends "base.html" %}
+
+{% block content %}
+<style>
+    .invoice-new-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 0 24px;
+        align-items: start;
+    }
+    .invoice-new-grid .due-date-info {
+        margin-bottom: 1rem;
+        padding: 0.75rem 1rem;
+        background: var(--bg);
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        color: var(--muted);
+    }
+    .invoice-new-grid .due-date-info label {
+        color: var(--muted);
+    }
+    .invoice-new-footer {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        margin-top: 8px;
+        padding-top: 16px;
+        border-top: 1px solid var(--border);
+    }
+    @media (max-width: 899px) {
+        .invoice-new-grid {
+            grid-template-columns: 1fr;
+        }
+    }
+</style>
+
+<div class="page-header">
+    <h1>New invoice</h1>
+    <a class="btn btn-secondary" href="{{ url_for('invoices.list_invoices') }}" aria-label="Back to invoices">&larr;</a>
+</div>
+
+{% if not customers %}
+<div class="empty-state">
+<p>No customers yet. <a href="{{ url_for('customers.new_customer') }}">Add a customer first</a>.</p>
+</div>
+{% endif %}
+
+<div class="card">
+{% if error %}
+<p class="form-error">{{ error }}</p>
+{% endif %}
+
+<form method="post" action="{{ url_for('invoices.new_invoice') }}">
+    <div class="invoice-new-grid">
+        <div class="invoice-new-col">
+            <div class="form-field">
+                <label>Customer<br>
+                    <select id="customer_id" name="customer_id">
+                        <option value="">— choose —</option>
+                        {% for c in customers %}
+                        <option value="{{ c.id }}" data-terms-days="{{ c.payment_terms_days }}"
+                            {% if form.customer_id == c.id|string %}selected{% endif %}>{{ c.name }}</option>
+                        {% endfor %}
+                    </select>
+                </label>
+            </div>
+            <div class="form-field">
+                <label>Amount (R)<br>
+                    <input type="text" name="amount" inputmode="decimal" value="{{ form.amount }}">
+                </label>
+            </div>
+            <div class="form-field">
+                <label>Description (not saved yet)<br>
+                    <input type="text" name="description" value="{{ form.description }}">
+                </label>
+            </div>
+        </div>
+        <div class="invoice-new-col">
+            <div class="form-field">
+                <label>Issue date<br>
+                    <input type="date" id="issue_date" name="issue_date" value="{{ form.issue_date }}">
+                </label>
+            </div>
+            <div class="due-date-info">
+                <label>Due date (from customer's payment terms)<br>
+                    <input type="date" id="due_date" name="due_date" readonly>
+                </label>
+            </div>
+        </div>
+    </div>
+    <div class="invoice-new-footer">
+        <button type="submit" class="btn btn-primary">Create invoice</button>
+        <a class="btn btn-secondary" href="{{ url_for('invoices.list_invoices') }}">Cancel</a>
+    </div>
+</form>
+</div>
+{% endblock %}

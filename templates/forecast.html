@@ -1,0 +1,138 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="page-header">
+    <h1>Cash forecast</h1>
+</div>
+
+<div class="card">
+    <p>
+        Show next:
+        {% for option in day_options %}
+        <a class="button{% if option == days %} active{% endif %}" href="{{ url_for('forecast.forecast_page', days=option) }}">{{ option }} days</a>
+        {% endfor %}
+    </p>
+</div>
+
+{% if negative_date %}
+<div class="flash error">Cash runs out on {{ negative_date }} unless you act.</div>
+{% endif %}
+{% if lowest %}
+<p>Lowest balance: <strong>{{ lowest[0] | rands }}</strong> on {{ lowest[1] }}.</p>
+{% endif %}
+
+<div class="card">
+    <h2>What if?</h2>
+    <form method="get" action="{{ url_for('forecast.forecast_page') }}">
+        <input type="hidden" name="days" value="{{ days }}">
+        <div class="form-field">
+            <label>Scenario
+                <select name="scenario">
+                    {% for value, label in scenario_options %}
+                    <option value="{{ value }}"{% if value == scenario_type %} selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
+                </select>
+            </label>
+        </div>
+        <div class="form-field">
+            <label>Customer (for "pays late" or "stops paying")
+                <select name="customer_id">
+                    <option value="">-- choose --</option>
+                    {% for c in customers %}
+                    <option value="{{ c.id }}"{% if form.customer_id == c.id|string %} selected{% endif %}>{{ c.id }} - {{ c.name }}</option>
+                    {% endfor %}
+                </select>
+            </label>
+        </div>
+        <div class="form-field">
+            <label>Days late (pays late: default 15, every customer: default 7)
+                <input type="number" name="scenario_days" min="0" value="{{ form.scenario_days }}">
+            </label>
+        </div>
+        <div class="form-field">
+            <label>Amount in rands (unexpected expense)
+                <input type="text" name="amount" value="{{ form.amount }}" placeholder="2500.00">
+            </label>
+        </div>
+        <div class="form-field">
+            <label>Date (unexpected expense)
+                <input type="date" name="date" value="{{ form.date }}">
+            </label>
+        </div>
+        <button type="submit" class="btn btn-primary">Run scenario</button>
+    </form>
+    {% if scenario_error %}
+    <div class="flash error">{{ scenario_error }}</div>
+    {% endif %}
+    {% if summary %}
+    <p><strong>{{ summary }}</strong></p>
+    {% endif %}
+</div>
+
+<div class="card">
+    <h2>Running balance</h2>
+    <canvas id="balance-chart" height="120"></canvas>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+    new Chart(document.getElementById("balance-chart"), {
+        type: "line",
+        data: {
+            labels: {{ chart_labels | tojson }},
+            datasets: [
+                {
+                    label: "Running balance (R)",
+                    data: {{ chart_balances | tojson }},
+                    borderColor: "#2c3e50",
+                    pointRadius: 0,
+                    fill: false
+                },
+                {
+                    label: "Zero line",
+                    data: {{ chart_zero | tojson }},
+                    borderColor: "#c0392b",
+                    borderDash: [6, 4],
+                    pointRadius: 0,
+                    fill: false
+                }{% if chart_scenario_balances %},
+                {
+                    label: "Scenario balance (R)",
+                    data: {{ chart_scenario_balances | tojson }},
+                    borderColor: "#e67e22",
+                    borderDash: [4, 4],
+                    pointRadius: 0,
+                    fill: false
+                }{% endif %}
+            ]
+        },
+        options: {
+            responsive: true,
+            scales: { x: { ticks: { maxTicksLimit: 10 } } }
+        }
+    });
+</script>
+
+<div class="card">
+    <h2>Weekly summary</h2>
+    <table class="table">
+        <thead>
+            <tr>
+                <th>Week starting</th>
+                <th>Inflows</th>
+                <th>Outflows</th>
+                <th>Closing balance</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for week in weeks %}
+            <tr{% if week.closing_balance_cents < 0 %} class="negative"{% endif %}>
+                <td>{{ week.week_start }}</td>
+                <td>{{ week.inflows_cents | rands }}</td>
+                <td>{{ week.outflows_cents | rands }}</td>
+                <td>{{ week.closing_balance_cents | rands }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

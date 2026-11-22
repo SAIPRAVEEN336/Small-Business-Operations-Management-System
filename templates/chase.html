@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="page-header">
+    <h1>Chase {{ customer.name }}</h1>
+</div>
+
+{% with messages = get_flashed_messages(with_categories=true) %}
+{% for category, message in messages %}
+<div class="flash {{ category }}">{{ message }}</div>
+{% endfor %}
+{% endwith %}
+
+<div class="stat-grid">
+    <div class="stat-card"><span class="stat-label">Owed</span><span class="stat-value">{{ total_owed_cents | rands }}</span></div>
+    <div class="stat-card"><span class="stat-label">Oldest overdue</span><span class="stat-value">{{ oldest_days }} days</span></div>
+    <div class="stat-card"><span class="stat-label">Suggested tone</span><span class="stat-value">{{ tone | capitalize }}</span></div>
+</div>
+
+{% if not has_open_invoices %}
+<p class="error">This customer has no open invoices.</p>
+{% endif %}
+
+<div class="card">
+<h2>Reminder</h2>
+<div class="form-field">
+    <label>Message<br>
+        <textarea id="chase-message" rows="12" style="width: 100%;">{{ message }}</textarea>
+    </label>
+</div>
+<p>
+    <button type="button" id="copy-message" class="btn btn-secondary">Copy to clipboard</button>
+    {% if wa_url %}
+    <a class="btn btn-primary" id="whatsapp-link" data-base="{{ wa_base }}" href="{{ wa_url }}" target="_blank" rel="noopener">Send on WhatsApp</a>
+    {% endif %}
+</p>
+</div>
+
+<div class="card">
+<h2>Mark as sent</h2>
+<form method="post" id="mark-sent-form" action="{{ url_for('chase.log_followup', customer_id=customer.id) }}">
+    <input type="hidden" name="message_text" id="sent-message-text" value="{{ message }}">
+    <div class="form-field">
+        <label>Channel<br>
+            <select name="channel">
+                {% for c in channels %}
+                <option value="{{ c }}">{{ c | capitalize }}</option>
+                {% endfor %}
+            </select>
+        </label>
+    </div>
+    <p><button type="submit" class="btn btn-primary">Mark as sent</button></p>
+</form>
+</div>
+
+<p><a class="btn btn-secondary" href="{{ url_for('dashboard.show_dashboard') }}">Back to dashboard</a></p>
+{% endblock %}

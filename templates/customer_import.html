@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="page-header">
+    <h1>Import customers</h1>
+</div>
+
+<div class="card">
+<p>Upload a CSV file with the columns: name, phone, email, payment_terms_days, notes. Rows without a name are skipped.</p>
+
+<p><a class="btn btn-secondary" href="{{ url_for('customers.import_template') }}">Download the CSV template</a></p>
+
+<form method="post" action="{{ url_for('customers.import_customers') }}" enctype="multipart/form-data">
+    <div class="form-field">
+        <label>CSV file<br>
+            <input type="file" name="file" accept=".csv,text/csv" required>
+        </label>
+    </div>
+    <p><button type="submit" class="btn btn-primary">Import</button></p>
+</form>
+</div>
+
+<p><a class="btn btn-secondary" href="{{ url_for('customers.list_customers') }}">Back to customers</a></p>
+{% endblock %}

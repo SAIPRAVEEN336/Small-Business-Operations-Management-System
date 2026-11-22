@@ -1,0 +1,86 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="page-header">
+    <h1>Today</h1>
+</div>
+
+<div class="card">
+    <h2>Quick add</h2>
+    <form method="post" action="{{ url_for('quick.quick_add') }}">
+        <input type="text" name="text" placeholder="e.g. Sipho paid 500 by EFT" required>
+        <button type="submit" class="btn btn-primary">Record</button>
+    </form>
+</div>
+
+{% if quick_draft %}
+<div class="card">
+    <h2>Confirm payment</h2>
+    {% if draft_customer_id is none %}
+    <p>No customer named "{{ quick_draft.customer_name or '' }}" was found. Check the name, or record the payment from the customer's page.</p>
+    {% elif not draft_invoices %}
+    <p>{{ quick_draft.customer_name }} has no open invoices to pay against.</p>
+    {% else %}
+    {% set draft_amount = (quick_draft.amount_cents or 0) / 100 %}
+    <form method="post" action="{{ url_for('quick.record_payment') }}">
+        <input type="hidden" name="customer_id" value="{{ draft_customer_id }}">
+        <p>Customer: {{ quick_draft.customer_name }}</p>
+        <div class="form-field">
+            <label>Invoice
+                <select name="invoice_id">
+                    {% for inv in draft_invoices %}
+                    <option value="{{ inv['id'] }}">{{ inv['invoice_number'] }} ({{ inv['balance_cents'] | rands }} outstanding)</option>
+                    {% endfor %}
+                </select>
+            </label>
+        </div>
+        <div class="form-field">
+            <label>Amount (R)
+                <input type="text" name="amount" value="{{ '%.2f' % draft_amount }}" required>
+            </label>
+        </div>
+        <div class="form-field">
+            <label>Method
+                <select name="method">
+                    {% for m in methods %}
+                    <option value="{{ m }}" {% if m == quick_draft.method %}selected{% endif %}>{{ m }}</option>
+                    {% endfor %}
+                </select>
+            </label>
+        </div>
+        <button type="submit" class="btn btn-primary">Confirm payment</button>
+    </form>
+    {% endif %}
+</div>
+{% endif %}
+
+<h2>Needs attention</h2>
+{% if top_alerts %}
+<div class="alert-grid">
+    {% for alert in top_alerts %}
+    <div class="alert-card alert-large alert-{{ alert.severity }}">
+        <h3>{{ alert.title }}</h3>
+        <p>{{ alert.explanation }}</p>
+        <a class="btn btn-primary" href="{{ alert.action_url }}">{{ alert.action_label }}</a>
+    </div>
+    {% endfor %}
+</div>
+<p><a href="/alerts">See all alerts</a></p>
+{% else %}
+<div class="empty-state">
+    <p>No alerts right now. Nothing needs attention.</p>
+</div>
+{% endif %}
+
+<div class="stat-grid">
+    <div class="stat-card">
+        <span class="stat-label">Next 7 days</span>
+        <p>{{ cash_sentence }}</p>
+    </div>
+    <div class="stat-card">
+        <span class="stat-label">Invoices needing attention</span>
+        <span class="stat-value">{{ attention_count }}</span>
+        <span class="stat-label">Overdue, or due within 3 days</span>
+    </div>
+</div>
+{% endblock %}

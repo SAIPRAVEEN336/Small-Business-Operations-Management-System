@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="page-header">
+    <h1>Dashboard</h1>
+</div>
+
+<div class="stat-grid">
+    <div class="stat-card">
+        <span class="stat-label">Total outstanding</span>
+        <span class="stat-value">{{ summary.total_outstanding_cents | rands }}</span>
+    </div>
+    <div class="stat-card">
+        <span class="stat-label">Overdue</span>
+        <span class="stat-value">{{ summary.overdue_cents | rands }}</span>
+    </div>
+    <div class="stat-card">
+        <span class="stat-label">Customers who owe</span>
+        <span class="stat-value">{{ summary.customers_owing }}</span>
+    </div>
+    <div class="stat-card">
+        <span class="stat-label">Received this month</span>
+        <span class="stat-value">{{ summary.received_this_month_cents | rands }}</span>
+    </div>
+</div>
+
+<h2>Who owes me</h2>
+{% if customers %}
+<div class="card">
+    <table class="table">
+        <thead>
+            <tr>
+                <th>Customer</th>
+                <th>Total owed</th>
+                <th>Oldest unpaid due</th>
+                <th>Days overdue</th>
+                <th>Invoices</th>
+                <th>Last chased</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for row in customers %}
+            <tr>
+                <td>{{ row.name }}</td>
+                <td>{{ row.total_owed_cents | rands }}</td>
+                <td>{{ row.oldest_due_date }}</td>
+                <td>{{ row.days_overdue }}</td>
+                <td>{{ row.invoice_count }}</td>
+                <td>{{ row.last_chased or "Never" }}</td>
+                <td><a class="btn btn-primary" href="{{ url_for('chase.chase_page', customer_id=row.customer_id) }}">Chase</a></td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% else %}
+<div class="empty-state">
+    <p>Nobody owes you money right now.</p>
+</div>
+{% endif %}
+{% endblock %}

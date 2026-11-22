@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="page-header">
+    <h1>Invoices</h1>
+    <a class="btn btn-primary" href="{{ url_for('invoices.new_invoice') }}">New invoice</a>
+</div>
+
+{% with messages = get_flashed_messages(with_categories=true) %}
+{% for category, message in messages %}
+<div class="flash {{ category }}">{{ message }}</div>
+{% endfor %}
+{% endwith %}
+
+<div class="card">
+<p class="tabs">
+    {% for key, label in filter_tabs %}
+    <a href="{{ url_for('invoices.list_invoices', filter=key) }}" {% if key == active_filter %}class="button"{% endif %}>{{ label }}</a>
+    {% endfor %}
+</p>
+</div>
+
+{% if invoices %}
+<div class="card">
+<table class="table">
+    <thead>
+        <tr>
+            <th>Invoice</th>
+            <th>Customer</th>
+            <th>Issued</th>
+            <th>Due</th>
+            <th>Amount</th>
+            <th>Paid</th>
+            <th>Balance</th>
+            <th>Status</th>
+            <th>Days overdue</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for inv in invoices %}
+        <tr>
+            <td><a href="{{ url_for('invoices.invoice_detail', invoice_id=inv.id) }}">{{ inv.invoice_number }}</a></td>
+            <td>{{ inv.customer_name }}</td>
+            <td>{{ inv.issue_date }}</td>
+            <td>{{ inv.due_date }}</td>
+            <td>{{ inv.amount_cents | rands }}</td>
+            <td>{{ inv.paid_cents | rands }}</td>
+            <td>{{ inv.balance_cents | rands }}</td>
+            <td><span class="pill pill-{{ inv.status_derived }}">{{ inv.status_derived }}</span></td>
+            <td>{{ inv.overdue_days if inv.overdue_days > 0 else "" }}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+</div>
+{% elif has_any %}
+<div class="empty-state">
+<p>No invoices match this filter.</p>
+</div>
+{% else %}
+<div class="empty-state">
+<p>No invoices yet — <a href="{{ url_for('invoices.new_invoice') }}">create your first one</a></p>
+</div>
+{% endif %}
+{% endblock %}
